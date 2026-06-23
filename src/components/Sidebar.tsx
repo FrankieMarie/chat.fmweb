@@ -1,4 +1,4 @@
-import { MODELS, type ModelId } from '../config/models'
+import { MODELS, getModel, type ModelId } from '../config/models'
 import { PROFILES, type ProfileId } from '../config/profiles'
 
 interface Props {
@@ -48,7 +48,11 @@ export function Sidebar({
           <div className="px-2 pb-1 text-xs uppercase tracking-wide text-gray-500">
             Agent profile
           </div>
-          {PROFILES.map((p) => (
+          {PROFILES.filter((p) =>
+            getModel(selectedModel).kind === 'image-edit'
+              ? p.id === 'flux-edit'
+              : p.id !== 'flux-edit',
+          ).map((p) => (
             <button
               key={p.id}
               onClick={() => onSelectProfile(p.id)}

@@ -6,6 +6,9 @@ export type ModelId =
   | 'deepseek-r1:14b'
   | 'qwen3-vl:8b'
   | 'dolphin3:8b'
+  | 'flux-kontext'
+
+export type ModelKind = 'chat' | 'image-edit'
 
 export interface ModelInfo {
   id: ModelId
@@ -15,6 +18,7 @@ export interface ModelInfo {
   reasoning: boolean
   defaultProfile: ProfileId
   numCtx: number
+  kind?: ModelKind
 }
 
 import type { ProfileId } from './profiles'
@@ -82,6 +86,16 @@ export const MODELS: ModelInfo[] = [
     reasoning: false,
     defaultProfile: 'uncensored',
     numCtx: 32768,
+  },
+  {
+    id: 'flux-kontext',
+    name: 'FLUX Kontext',
+    blurb: 'Edit images — attach an image, describe the edit.',
+    vision: true,
+    reasoning: false,
+    defaultProfile: 'flux-edit',
+    numCtx: 0,
+    kind: 'image-edit',
   },
 ]
 

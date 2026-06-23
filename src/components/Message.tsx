@@ -11,7 +11,15 @@ function splitThink(content: string): { think: string | null; body: string } {
   return { think, body }
 }
 
-export function Message({ msg }: { msg: ChatMessage }) {
+export function Message({
+  msg,
+  onEditImage,
+  loading,
+}: {
+  msg: ChatMessage
+  onEditImage?: (img: { dataUrl: string }) => void
+  loading?: boolean
+}) {
   const isUser = msg.role === 'user'
   const { think, body } = isUser ? { think: null, body: msg.content } : splitThink(msg.content)
 
@@ -23,11 +31,32 @@ export function Message({ msg }: { msg: ChatMessage }) {
         }`}
       >
         {msg.image && (
-          <img
-            src={msg.image.dataUrl}
-            alt="upload"
-            className="mb-2 max-h-48 rounded-lg"
-          />
+          <div className="mb-2">
+            <img
+              src={msg.image.dataUrl}
+              alt={isUser ? 'upload' : 'result'}
+              className="max-h-72 rounded-lg"
+            />
+            {!isUser && (
+              <div className="mt-1 flex gap-3">
+                <a
+                  href={msg.image.dataUrl}
+                  download="flux-edit.png"
+                  className="text-xs text-blue-300 hover:text-blue-200"
+                >
+                  ↓ Download
+                </a>
+                {onEditImage && (
+                  <button
+                    onClick={() => onEditImage({ dataUrl: msg.image!.dataUrl })}
+                    className="text-xs text-blue-300 hover:text-blue-200"
+                  >
+                    ✎ Edit this
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {think && (
@@ -39,7 +68,13 @@ export function Message({ msg }: { msg: ChatMessage }) {
           </details>
         )}
 
-        {isUser ? (
+        {loading && !body && !msg.image ? (
+          <span className="typing-dots text-gray-300" aria-label="thinking">
+            <span />
+            <span />
+            <span />
+          </span>
+        ) : isUser ? (
           <span className="whitespace-pre-wrap">{body}</span>
         ) : (
           <div className="prose prose-invert max-w-none">

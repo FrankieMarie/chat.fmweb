@@ -4,6 +4,7 @@ export type ProfileId =
   | 'reasoner'
   | 'uncensored'
   | 'vision'
+  | 'flux-edit'
 
 export interface Profile {
   id: ProfileId
@@ -46,6 +47,12 @@ export const PROFILES: Profile[] = [
     name: 'Vision',
     description: 'Image analysis, no preamble.',
     systemPrompt: `${GLOBAL}\n\nDescribe or analyze only what is asked about the image. No "I see an image that..." preamble.`,
+  },
+  {
+    id: 'flux-edit',
+    name: 'Image Edit',
+    description: 'Attach an image and describe the edit. e.g. "remove the cup", "make the sky sunset".',
+    systemPrompt: '',
   },
 ]
 

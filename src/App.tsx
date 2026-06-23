@@ -4,7 +4,7 @@ import { ChatInput } from './components/ChatInput'
 import { Message } from './components/Message'
 import { MODELS, getModel, type ModelId } from './config/models'
 import { getProfile, type ProfileId } from './config/profiles'
-import { streamChat, type ChatImage, type ChatMessage } from './lib/api'
+import { streamChat, editImage, unloadModel, type ChatImage, type ChatMessage } from './lib/api'
 
 function estimateTokens(msgs: ChatMessage[], systemPrompt: string): number {
   let chars = systemPrompt.length
@@ -23,12 +23,28 @@ export default function App() {
   const [streaming, setStreaming] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [preloadImage, setPreloadImage] = useState<ChatImage | null>(null)
+  const [guidance, setGuidance] = useState(2.5)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const modelInfo = getModel(model)
 
   const selectModel = (id: ModelId) => {
+    if (id === model) {
+      setSidebarOpen(false)
+      return
+    }
+    // Switching to the image-edit model: free Ollama VRAM so ComfyUI has room.
+    if (getModel(id).kind === 'image-edit' && modelInfo.kind !== 'image-edit') {
+      void unloadModel(model)
+    }
+    // Clear chat context on model switch.
+    abortRef.current?.abort()
+    setMessages([])
+    setStreaming(false)
+    setError(null)
+    setPreloadImage(null)
     setModel(id)
     setSidebarOpen(false)
     setProfile(getModel(id).defaultProfile)
@@ -57,13 +73,41 @@ export default function App() {
     setMessages([...history, { role: 'assistant', content: '' }])
     setStreaming(true)
 
+    const abort = new AbortController()
+    abortRef.current = abort
+
+    if (modelInfo.kind === 'image-edit') {
+      if (!image) {
+        setError('Attach an image to edit.')
+        setStreaming(false)
+        setMessages(history)
+        return
+      }
+      editImage(image.dataUrl, text, guidance, abort.signal)
+        .then((resultUrl) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            next[next.length - 1] = {
+              role: 'assistant',
+              content: '',
+              image: { dataUrl: resultUrl },
+            }
+            return next
+          })
+          setStreaming(false)
+        })
+        .catch((err: Error) => {
+          if (err.name === 'AbortError') return
+          setError(err.message)
+          setStreaming(false)
+        })
+      return
+    }
+
     const sys: ChatMessage = {
       role: 'system',
       content: getProfile(profile).systemPrompt,
     }
-    const abort = new AbortController()
-    abortRef.current = abort
-
     streamChat(model, [sys, ...history], abort.signal, {
       onToken: (tok) =>
         setMessages((prev) => {
@@ -114,7 +158,7 @@ export default function App() {
               {getProfile(profile).name} · {modelInfo.blurb}
             </div>
           </div>
-          {messages.length > 0 &&
+          {messages.length > 0 && modelInfo.numCtx > 0 &&
             (() => {
               const used = estimateTokens(messages, getProfile(profile).systemPrompt)
               const pct = Math.min(100, Math.round((used / modelInfo.numCtx) * 100))
@@ -140,7 +184,16 @@ export default function App() {
             </div>
           )}
           {messages.map((m, i) => (
-            <Message key={i} msg={m} />
+            <Message
+              key={i}
+              msg={m}
+              loading={streaming && i === messages.length - 1 && m.role === 'assistant'}
+              onEditImage={
+                modelInfo.kind === 'image-edit' && m.role === 'assistant' && m.image
+                  ? setPreloadImage
+                  : undefined
+              }
+            />
           ))}
           {error && (
             <div className="px-4 py-2 text-sm text-red-400">Error: {error}</div>
@@ -152,6 +205,10 @@ export default function App() {
           onStop={stop}
           streaming={streaming}
           visionEnabled={modelInfo.vision}
+          preloadImage={preloadImage}
+          onPreloadConsumed={() => setPreloadImage(null)}
+          guidance={modelInfo.kind === 'image-edit' ? guidance : undefined}
+          onGuidanceChange={setGuidance}
         />
       </div>
     </div>

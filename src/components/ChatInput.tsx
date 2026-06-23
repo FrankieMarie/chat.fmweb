@@ -6,11 +6,32 @@ interface Props {
   onStop: () => void
   streaming: boolean
   visionEnabled: boolean
+  preloadImage?: ChatImage | null
+  onPreloadConsumed?: () => void
+  guidance?: number
+  onGuidanceChange?: (v: number) => void
 }
 
-export function ChatInput({ onSend, onStop, streaming, visionEnabled }: Props) {
+export function ChatInput({
+  onSend,
+  onStop,
+  streaming,
+  visionEnabled,
+  preloadImage,
+  onPreloadConsumed,
+  guidance,
+  onGuidanceChange,
+}: Props) {
   const [text, setText] = useState('')
   const [image, setImage] = useState<ChatImage | null>(null)
+  const [lastPreload, setLastPreload] = useState<ChatImage | null>(null)
+
+  // Adjust state during render when a new preload image arrives (React pattern).
+  if (preloadImage && preloadImage !== lastPreload) {
+    setLastPreload(preloadImage)
+    setImage(preloadImage)
+    onPreloadConsumed?.()
+  }
   const [history, setHistory] = useState<string[]>([])
   const [histIndex, setHistIndex] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -51,6 +72,21 @@ export function ChatInput({ onSend, onStop, streaming, visionEnabled }: Props) {
 
   return (
     <div className="border-t border-white/10 bg-[#12151d] p-3">
+      {guidance !== undefined && (
+        <div className="mb-2 flex items-center gap-3 text-xs text-gray-400">
+          <span className="whitespace-nowrap">Edit strength: {guidance.toFixed(1)}</span>
+          <input
+            type="range"
+            min={2}
+            max={3}
+            step={0.1}
+            value={guidance}
+            onChange={(e) => onGuidanceChange?.(parseFloat(e.target.value))}
+            className="flex-1 accent-blue-500"
+          />
+          <span className="whitespace-nowrap text-gray-500">gentle → strong</span>
+        </div>
+      )}
       {image && (
         <div className="mb-2 flex items-center gap-2">
           <img src={image.dataUrl} alt="" className="h-16 rounded-lg" />
